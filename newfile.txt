@@ -1,7 +1,7 @@
 class PromotionController < ApplicationController
 	
   def notifyMe
-    params[:mobile] = params[:From] if param[:From]
+    params[:mobile] = params[:From]
     email = params[:email] ? params[:email] : ""
     mobile = params[:mobile] ? params[:mobile] : ""
     id = params[:patient_id] ? params[:patient_id] : ""
