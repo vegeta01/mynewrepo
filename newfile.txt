@@ -1,0 +1,68 @@
+class PromotionController < ApplicationController
+	
+  def notifyMe
+    params[:mobile] = params[:From] if params[:From]
+    email = params[:email] ? params[:email] : ""
+    mobile = params[:mobile] ? params[:mobile] : ""
+    id = params[:patient_id] ? params[:patient_id] : ""
+    ###check if user can receive otp/promotion or not
+    if mobile != ""
+      ###check if user can receive otp or not
+      ret_otp = Utility.check_if_user_can_receive_otp(mobile)
+      if ret_otp == 0           
+        render :text =>"403"
+        return 
+      end
+      ######
+    end
+    ######
+    if !mobile.nil? && mobile!=""
+      pro = Promotion.find(:first,:conditions=>['mobile=?',mobile])
+    else
+      pro = Promotion.find(:first,:conditions=>['email=?',email])
+    end
+    if pro.nil?
+      pro=Promotion.new
+      pro.mobile=mobile
+      pro.email=email
+      if id.nil? || id==""
+        if !mobile.nil? && mobile!=""
+          pat=Patient.find(:first,:conditions=>['mobile=?',mobile])
+        else
+          pat=Patient.find(:first,:conditions=>['email=?',email])
+        end
+        pro.patient_id = pat ? pat.id : nil 
+      else
+        if params[:user_type] == "Doctor"
+          pro.doctor_id = id 
+        else
+          pro.patient_id = id 
+        end
+      end
+      pro.save
+    end
+    if(!params[:From] and !mobile.nil? and mobile!="")
+        if(pat==nil)
+          pat=Patient.find(:first,:conditions=>['mobile=?',mobile])
+        end
+        myurlpath = "https://#{ENV['exotel_secret2']}@twilix.exotel.in/v1/Accounts/qikwell1/Sms/send"
+        url = URI.parse(myurlpath)
+        outbound_sms_number = "9243779977"
+        req = Net::HTTP::Post.new(url.path)
+        p=Promotion.find(:first,:conditions=>['mobile=?','qikwell'])
+        if(pat!=nil)
+          str="Hi "+pat.name.capitalize+","+"\n"+p.interest_message
+        else
+          str="Hi,"+"\n"+p.interest_message
+        end
+        Utility.keep_otp_to_user_count_track(mobile)
+        req.form_data = {'From' => outbound_sms_number, 'To'=> mobile, 'Body' => str}
+        req.basic_auth url.user, url.password if url.user
+        con = Net::HTTP.new(url.host, url.port)
+        con.use_ssl = true
+        con.start {|http| http.request(req)}
+    end
+    cookies[:get_invite] = true
+    render :text =>"200"
+  end
+end
